@@ -58,7 +58,7 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
         Some(line) => line?,
     };
 
-    let (_, shutdown_receiver) = mpsc::unbounded::<Void>();
+    let (_hoge, shutdown_receiver) = mpsc::unbounded::<Void>();
 
     broker
         .send(Event::NewPeer {
