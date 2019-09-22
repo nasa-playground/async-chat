@@ -43,14 +43,13 @@ where
 {
     task::spawn(async move {
         if let Err(e) = future.await {
-            println!("{}", e)
+            eprintln!("{}", e)
         }
     })
 }
 
 async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result<()> {
     let stream = Arc::new(stream);
-
     let reader = BufReader::new(&*stream);
     let mut lines = reader.lines();
 
@@ -68,8 +67,6 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
             shutdown: shutdown_receiver,
         })
         .await?;
-
-    println!("name = {:?}", name);
 
     while let Some(line) = lines.next().await {
         let line = line?;
@@ -151,7 +148,6 @@ async fn broker_loop(mut events: Receiver<Event>) -> Result<()> {
         mpsc::unbounded::<(String, Receiver<String>)>();
 
     let mut peers: HashMap<String, Sender<String>> = HashMap::new();
-    println!("peers: {:?}", peers);
 
     loop {
         let event = select! {
@@ -169,12 +165,9 @@ async fn broker_loop(mut events: Receiver<Event>) -> Result<()> {
         match event {
             Event::Message { from, to, msg } => {
                 for addr in to {
-                    println!("get addr: {}", addr);
-                    println!("peers: {:?}", peers);
                     if let Some(peer) = peers.get_mut(&addr) {
                         let msg = format!("from {}: {}\n", from, msg);
-                        let r = peer.send(msg).await;
-                        println!("send message: result: {:?}", r);
+                        peer.send(msg).await?
                     }
                 }
             }
@@ -183,7 +176,7 @@ async fn broker_loop(mut events: Receiver<Event>) -> Result<()> {
                 stream,
                 shutdown,
             } => match peers.entry(name.clone()) {
-                Entry::Occupied(..) => println!("occupied"),
+                Entry::Occupied(..) => (),
                 Entry::Vacant(entry) => {
                     let (client_sender, mut client_receiver) = mpsc::unbounded();
                     entry.insert(client_sender);
